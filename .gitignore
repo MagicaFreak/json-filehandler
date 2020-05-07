@@ -1,0 +1,5 @@
+build
+dist
+noirpi_jsonhandler.egg-info
+tests
+.idea
