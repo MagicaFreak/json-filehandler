@@ -3,3 +3,4 @@ dist
 noirpi_jsonhandler.egg-info
 tests
 .idea
+/commands to build

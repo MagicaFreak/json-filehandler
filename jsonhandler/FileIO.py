@@ -6,7 +6,7 @@ from random import randint
 
 
 class InvalidFileIOCall(Exception):
-    traceback.print_exception(type(Exception), Exception, Exception.__traceback__)
+    pass
 
 
 class FileIO:
