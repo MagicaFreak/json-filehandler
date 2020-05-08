@@ -3,10 +3,58 @@ import os
 import traceback
 from pathlib import Path
 from random import randint
+from typing import Dict
 
 
-class InvalidFileIOCall(Exception):
+class Error(Exception):
     pass
+
+
+# noinspection PySameParameterValue
+class InvalidFileIOCall(Error):
+    def __init__(self, *args):
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+        try:
+            self.io = args[1]
+        except IndexError:
+            self.io = None
+
+    def __str__(self):
+        if self.message:
+            return '\nInvalidFileIOCall {0} "{1}" '.format(self.message, self.io)
+        else:
+            return 'InvalidFileIOCall has been raised'
+
+
+class DataMustBeNone(Error):
+    def __init__(self, *args):
+        if args:
+            self.io = args[0]
+        else:
+            self.io = None
+
+    def __str__(self):
+        if self.io:
+            return 'Data must be None on option "{0}"'.format(self.io)
+        else:
+            return 'Data must be None on option -> "check" or "load"'
+
+
+class DataCantBeNone(Error):
+    def __init__(self, *args):
+        if args:
+            self.io = args[0]
+        else:
+            self.io = None
+
+    def __str__(self):
+        if self.io:
+            return 'Data can\'t be None on option "{0}"'.format(self.io)
+        else:
+            return 'Data can\'t be None on option -> "save"'
 
 
 class FileIO:
@@ -16,25 +64,34 @@ class FileIO:
         self.data = data
 
     @staticmethod
-    def fileio(filepath, io, data=None):
+    def fileio(filepath, option, data=None):
         """
-
         :param filepath: Full Filepath including Filename
-        :param io: action [save, load, check]
+        :param option: action [save, load, check]
         :param data: json formatted data to save
         :return:
         """
-        if io == "save" and data is not None:
-            return FileIO.save_json(filepath, data)
-        elif io == "load" and data is None:
-            return FileIO._read_json(filepath)
-        elif io == "check" and data is None:
-            return FileIO.is_valid_json(filepath)
+        if option == "save":
+            if data is not None:
+                return FileIO._save_json(filepath, data)
+            else:
+                raise DataCantBeNone(option)
+        elif option == "load":
+            if data is None:
+                return FileIO._read_json(filepath)
+            else:
+                raise DataMustBeNone(option)
+        elif option == "check":
+            if data is None:
+                return FileIO._is_valid_json(filepath)
+            else:
+                raise DataMustBeNone(option)
         else:
-            raise InvalidFileIOCall("FileIO was called with invalid parameters")
+            raise InvalidFileIOCall("FileIO was called with invalid parameter\n"
+                                    "Allowed parameters are: 'save', 'load', and 'check'", option)
 
     @staticmethod
-    def is_valid_json(filepath):
+    def _is_valid_json(filepath):
         """Verifies if json file exists / is readable
         :param filepath Full Filepath including Filename"""
         try:
@@ -47,10 +104,18 @@ class FileIO:
             return False
 
     @staticmethod
-    def load_json(filepath):
-        """Loads json file
-        :param filepath Full Filepath including Filename"""
-        return FileIO._read_json(filepath)
+    def validate(data: Dict):
+        """Verifies json dict is readable
+        :param data: json formatted data to validate"""
+        tmp_file = "./{}.tmp".format(randint(1000, 9999))
+        FileIO._dump_json(tmp_file, data)
+        try:
+            FileIO._read_json(tmp_file)
+            os.remove(tmp_file)
+            return True
+        except json.decoder.JSONDecodeError as error:
+            traceback.print_exception(type(error), error, error.__traceback__)
+            return False
 
     @staticmethod
     def _read_json(filepath):
@@ -60,7 +125,7 @@ class FileIO:
             return json.loads(f.read())
 
     @staticmethod
-    def _save_json(filepath, data):
+    def _dump_json(filepath, data):
         """internally used function to read a json File
         :param filepath Full Filepath including Filename
         :param data: json formatted data to save"""
@@ -71,14 +136,14 @@ class FileIO:
 
     # noinspection PySameParameterValue
     @staticmethod
-    def save_json(filepath, data):
+    def _save_json(filepath, data):
         """Automically saves json file
         :param filepath Full Filepath including Filename
         :param data: json formatted data to save"""
         rnd = randint(1000, 9999)
         path, ext = os.path.splitext(filepath)
         tmp_file = "{}-{}.tmp".format(path, rnd)
-        FileIO._save_json(tmp_file, data)
+        FileIO._dump_json(tmp_file, data)
         try:
             FileIO._read_json(tmp_file)
         except json.decoder.JSONDecodeError as error:
@@ -90,7 +155,7 @@ class FileIO:
         return True
 
     @staticmethod
-    def check_files(path: str, filename: str, default_value):
+    def check_file(path: str, filename: str, default_value):
         """check if file exists or create one
         :param path Path to file
         :param filename Filename
@@ -114,7 +179,7 @@ class FileIO:
     def set_value(filepath, add, *path):
         """get a value from a json File
         :param filepath Full filepath including Filename
-        :param add Value to add into the json file
+        :param add Value to update or DICT to add into the json file
         :param path Path inside the File (json standard use)"""
         _dict = FileIO.fileio(filepath, "load")
         for part in path:

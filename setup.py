@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="noirpi-jsonhandler",  # Replace with your own username
-    version="1.0.1",
+    version="1.1.0",
     author="NoirPi",
     author_email="noirpi@noircoding.de",
     description="A small json Filehandler",
